@@ -1,0 +1,50 @@
+name: task4
+description: "Twinkle's Rainbow Hunt"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  camera: ^0.10.5+9
+  google_mlkit_image_labeling: ^0.10.0
+  flutter_tts: ^3.8.5
+  lottie: ^2.7.0
+  permission_handler: ^11.3.1
+  image: ^4.2.0
+  audioplayers: ^5.2.1
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#6C4DFF"
+  adaptive_icon_foreground: "assets/logo.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/logo.png
+    - assets/logo-removebg.png
+    - assets/images/twinkle.png
+    - assets/lottie/happy_twinkle_star.json
+    - assets/lottie/sad_star.json
+    - assets/lottie/star_with_hearteyes.json
