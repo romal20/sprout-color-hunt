@@ -62,8 +62,9 @@ class _SuccessScreenState extends State<SuccessScreen>
     final provider = context.read<GameProvider>();
     AudioService().playSuccess();
     Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted)
+      if (mounted) {
         TtsService().speak(provider.currentTargetColor.successMessage);
+      }
     });
   }
 
@@ -392,43 +393,62 @@ class _CapturedImageState extends State<_CapturedImage> {
   @override
   void initState() {
     super.initState();
-    _evictAndLoad();
+    // Only evict file-based cache on native — FileImage crashes on web
+    if (!kIsWeb) {
+      _evictNative();
+    }
   }
 
-  void _evictAndLoad() {
+  void _evictNative() {
     if (widget.imagePath.isEmpty) return;
-    // Evict any cached version so the latest capture is always shown
-    FileImage(File(widget.imagePath)).evict().then((_) {
-      if (mounted) setState(() => _hasError = false);
-    }).catchError((_) {});
+    try {
+      FileImage(File(widget.imagePath)).evict().then((_) {
+        if (mounted) setState(() => _hasError = false);
+      }).catchError((_) {});
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[CapturedImage] Building with path: "${widget.imagePath}"');
+    debugPrint('[CapturedImage] path="${widget.imagePath}" kIsWeb=$kIsWeb');
 
-    if (_hasError || widget.imagePath.isEmpty) {
-      return _placeholder();
+    if (_hasError || widget.imagePath.isEmpty) return _placeholder();
+
+    // ── Web: imagePath is a blob URL — use Image.network ──────────────────
+    if (kIsWeb) {
+      return Image.network(
+        widget.imagePath,
+        key: ValueKey(widget.imagePath),
+        width: 140,
+        height: 140,
+        fit: BoxFit.cover,
+        errorBuilder: (_, err, __) {
+          debugPrint('[CapturedImage] Image.network error: $err');
+          return _placeholder();
+        },
+      );
     }
 
-    final file = File(widget.imagePath);
-    final exists = file.existsSync();
-    debugPrint('[CapturedImage] File exists: $exists');
-
-    if (!exists) return _placeholder();
-
-    return Image.file(
-      file,
-      key: ValueKey(widget.imagePath), // force new widget when path changes
-      width: 140,
-      height: 140,
-      fit: BoxFit.cover,
-      cacheWidth: 280, // 2× for high-DPI, keeps memory reasonable
-      errorBuilder: (_, err, __) {
-        debugPrint('[CapturedImage] Image.file error: $err');
-        return _placeholder();
-      },
-    );
+    // ── Native: use Image.file ────────────────────────────────────────────
+    try {
+      final file = File(widget.imagePath);
+      if (!file.existsSync()) return _placeholder();
+      return Image.file(
+        file,
+        key: ValueKey(widget.imagePath),
+        width: 140,
+        height: 140,
+        fit: BoxFit.cover,
+        cacheWidth: 280,
+        errorBuilder: (_, err, __) {
+          debugPrint('[CapturedImage] Image.file error: $err');
+          return _placeholder();
+        },
+      );
+    } catch (e) {
+      debugPrint('[CapturedImage] build error: $e');
+      return _placeholder();
+    }
   }
 
   Widget _placeholder() {

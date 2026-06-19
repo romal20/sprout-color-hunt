@@ -48,3 +48,7 @@ flutter:
     - assets/lottie/happy_twinkle_star.json
     - assets/lottie/sad_star.json
     - assets/lottie/star_with_hearteyes.json
+    - assets/audio/background_music.mp3
+    - assets/audio/chime.mp3
+    - assets/audio/success.mp3
+    - assets/audio/rainbow_complete.mp3

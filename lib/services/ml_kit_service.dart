@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+// ML Kit is a native-only package — guard every call with kIsWeb
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 
 class MlKitService {
@@ -6,18 +7,23 @@ class MlKitService {
   factory MlKitService() => _instance;
   MlKitService._internal();
 
-  // Do NOT cache the labeler across calls — re-create it each time to avoid
-  // stale-state issues that cause silent empty results.
+  /// Label an image by file path.
+  /// On Flutter Web this always returns 'Object' immediately because the
+  /// native ML Kit SDK is unavailable in browser environments.
   Future<String> labelImage(String imagePath) async {
+    // ── Web: ML Kit native SDK is not available ───────────────────────────
+    if (kIsWeb) {
+      debugPrint('[MlKit] Skipping on web — returning "Object"');
+      return 'Object';
+    }
+
+    // ── Native (Android / iOS) ────────────────────────────────────────────
     ImageLabeler? labeler;
     try {
       debugPrint('[MlKit] Processing: $imagePath');
 
       labeler = ImageLabeler(
-        options: ImageLabelerOptions(
-          // 0.0 threshold = return ALL labels; we pick the best ourselves
-          confidenceThreshold: 0.0,
-        ),
+        options: ImageLabelerOptions(confidenceThreshold: 0.0),
       );
 
       final inputImage = InputImage.fromFilePath(imagePath);
@@ -25,27 +31,26 @@ class MlKitService {
 
       debugPrint('[MlKit] Labels returned: ${labels.length}');
       for (final l in labels) {
-        debugPrint('[MlKit]   "${l.label}" — ${(l.confidence * 100).toStringAsFixed(1)}%');
+        debugPrint(
+            '[MlKit]   "${l.label}" — ${(l.confidence * 100).toStringAsFixed(1)}%');
       }
 
       if (labels.isEmpty) {
-        debugPrint('[MlKit] No labels found, returning "Object"');
+        debugPrint('[MlKit] No labels, returning "Object"');
         return 'Object';
       }
 
-      // Sort by confidence descending
       labels.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-      // Walk the list looking for the first non-generic label
       for (final label in labels) {
         final cleaned = _cleanLabel(label.label);
         if (!_isGenericLabel(cleaned)) {
-          debugPrint('[MlKit] Best label: "$cleaned" (${(label.confidence * 100).toStringAsFixed(1)}%)');
+          debugPrint(
+              '[MlKit] Best label: "$cleaned" (${(label.confidence * 100).toStringAsFixed(1)}%)');
           return cleaned;
         }
       }
 
-      // All labels are generic — return the top one anyway so we show something
       final top = _cleanLabel(labels.first.label);
       debugPrint('[MlKit] All generic, using top: "$top"');
       return top.isEmpty ? 'Object' : top;
@@ -54,7 +59,6 @@ class MlKitService {
       debugPrint('[MlKit] $st');
       return 'Object';
     } finally {
-      // Always close to release native resources
       try {
         await labeler?.close();
       } catch (_) {}
@@ -75,19 +79,34 @@ class MlKitService {
 
   bool _isGenericLabel(String label) {
     const generic = <String>{
-      // ML Kit base model generic categories
-      'Plant', 'Organism', 'Natural material', 'Still life photography',
-      'Macro photography', 'Nature', 'Close-up', 'Photography',
-      'Stock photography', 'Art', 'Creative arts', 'Font',
-      // Truly unhelpful
-      'Unknown', 'None', 'Entity', 'Thing', 'Item',
-      'Material', 'Texture', 'Pattern', 'Background',
-      'Scene', 'Outdoor', 'Indoor', 'Room',
+      'Plant',
+      'Organism',
+      'Natural material',
+      'Still life photography',
+      'Macro photography',
+      'Nature',
+      'Close-up',
+      'Photography',
+      'Stock photography',
+      'Art',
+      'Creative arts',
+      'Font',
+      'Unknown',
+      'None',
+      'Entity',
+      'Thing',
+      'Item',
+      'Material',
+      'Texture',
+      'Pattern',
+      'Background',
+      'Scene',
+      'Outdoor',
+      'Indoor',
+      'Room',
     };
     return generic.contains(label);
   }
 
-  void dispose() {
-    // No persistent labeler to close
-  }
+  void dispose() {}
 }

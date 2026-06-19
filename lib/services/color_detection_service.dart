@@ -7,31 +7,63 @@ import '../models/game_models.dart';
 class ColorDetectionResult {
   final String colorName;
   final RainbowColor? rainbowColor;
-
   ColorDetectionResult({required this.colorName, this.rainbowColor});
 }
 
 class ColorDetectionService {
-  /// Detect the dominant color in an image file.
-  /// Returns a result with colorName and matching RainbowColor (if any).
-  /// Never returns 'Unknown' — always falls back to the closest valid color.
+  // ── Web-safe entry point ──────────────────────────────────────────────────
+  /// Use this on Flutter Web — accepts raw bytes (XFile.readAsBytes()).
+  static ColorDetectionResult detectDominantColorFromBytes(Uint8List bytes) {
+    try {
+      debugPrint('[ColorDetection] fromBytes: ${bytes.length} bytes');
+      final image = img.decodeImage(bytes);
+      if (image == null) {
+        debugPrint('[ColorDetection] decodeImage returned null');
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
+      }
+      return _analyzeImage(image);
+    } catch (e) {
+      debugPrint('[ColorDetection] fromBytes ERROR: $e');
+      return ColorDetectionResult(
+          colorName: 'Red', rainbowColor: RainbowColor.red);
+    }
+  }
+
+  // ── Native (Android/iOS) entry point ─────────────────────────────────────
+  /// Reads from filesystem. Do NOT call on web.
   static ColorDetectionResult detectDominantColor(String imagePath) {
     try {
+      debugPrint('[ColorDetection] detectDominantColor: $imagePath');
       final file = File(imagePath);
       if (!file.existsSync()) {
-        return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+        debugPrint('[ColorDetection] File not found: $imagePath');
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
       }
-
       final bytes = file.readAsBytesSync();
-      img.Image? image = img.decodeImage(bytes);
+      debugPrint('[ColorDetection] Read ${bytes.length} bytes');
+      final image = img.decodeImage(bytes);
       if (image == null) {
-        return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+        debugPrint('[ColorDetection] decodeImage returned null');
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
       }
+      return _analyzeImage(image);
+    } catch (e) {
+      debugPrint('[ColorDetection] detectDominantColor ERROR: $e');
+      return ColorDetectionResult(
+          colorName: 'Red', rainbowColor: RainbowColor.red);
+    }
+  }
 
-      // Resize image for fast processing — 100×100 is plenty for color detection
-      if (image.width > 100 || image.height > 100) {
-        image = img.copyResize(image, width: 100, height: 100);
-      }
+  // ── Shared pixel-analysis core ────────────────────────────────────────────
+  static ColorDetectionResult _analyzeImage(img.Image raw) {
+    try {
+      // Resize for fast processing
+      final image = (raw.width > 100 || raw.height > 100)
+          ? img.copyResize(raw, width: 100, height: 100)
+          : raw;
 
       final Map<String, int> colorCounts = {};
 
@@ -41,44 +73,39 @@ class ColorDetectionService {
           final r = pixel.r.toInt();
           final g = pixel.g.toInt();
           final b = pixel.b.toInt();
-
-          // Skip nearly-transparent pixels if alpha exists
           final a = pixel.a.toInt();
           if (a < 30) continue;
-
           final colorName = _rgbToColorName(r, g, b);
-          // Skip neutrals in first pass
-          if (colorName == 'White' || colorName == 'Black' || colorName == 'Grey') {
-            continue;
-          }
+          if (colorName == 'White' ||
+              colorName == 'Black' ||
+              colorName == 'Grey') continue;
           colorCounts[colorName] = (colorCounts[colorName] ?? 0) + 1;
         }
       }
 
-      // If only neutrals found, do a second pass including them
+      // Second pass including neutrals if nothing found
       if (colorCounts.isEmpty) {
         for (int y = 0; y < image.height; y++) {
           for (int x = 0; x < image.width; x++) {
             final pixel = image.getPixel(x, y);
-            final r = pixel.r.toInt();
-            final g = pixel.g.toInt();
-            final b = pixel.b.toInt();
-            final colorName = _rgbToColorName(r, g, b);
+            final colorName = _rgbToColorName(
+                pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt());
             colorCounts[colorName] = (colorCounts[colorName] ?? 0) + 1;
           }
         }
       }
 
       if (colorCounts.isEmpty) {
-        return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
       }
 
-      // Find dominant color
       final sorted = colorCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
       final dominantName = sorted.first.key;
 
-      debugPrint('[ColorDetection] Top colors: ${sorted.take(3).map((e) => "${e.key}:${e.value}").join(", ")}');
+      debugPrint(
+          '[ColorDetection] Top: ${sorted.take(3).map((e) => "${e.key}:${e.value}").join(", ")}');
       debugPrint('[ColorDetection] Dominant: $dominantName');
 
       return ColorDetectionResult(
@@ -86,9 +113,9 @@ class ColorDetectionService {
         rainbowColor: _toRainbowColor(dominantName),
       );
     } catch (e) {
-      debugPrint('[ColorDetection] ERROR: $e');
-      // Absolute fallback — never crash, never return Unknown
-      return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+      debugPrint('[ColorDetection] _analyzeImage ERROR: $e');
+      return ColorDetectionResult(
+          colorName: 'Red', rainbowColor: RainbowColor.red);
     }
   }
 
@@ -100,20 +127,14 @@ class ColorDetectionService {
     final double maxC = math.max(rf, math.max(gf, bf));
     final double minC = math.min(rf, math.min(gf, bf));
     final double delta = maxC - minC;
-
     final double v = maxC;
 
-    // Very dark → Black
     if (v < 0.12) return 'Black';
-
-    // Very bright + low saturation → White
     if (v > 0.88 && delta < 0.08) return 'White';
 
-    // Low saturation → Grey
     final double s = maxC > 0 ? delta / maxC : 0;
     if (s < 0.12) return 'Grey';
 
-    // Compute hue
     double h = 0;
     if (delta > 0.001) {
       if (maxC == rf) {
@@ -126,33 +147,19 @@ class ColorDetectionService {
       if (h < 0) h += 360.0;
     }
 
-    // Only classify as a named color if saturation is meaningful
-    // Use generous thresholds — children's objects are never perfectly saturated
     if (s >= 0.10 && v >= 0.10) {
-      // Red — wraps around 360°, wider range
       if (h >= 340 || h < 20) return 'Red';
-      // Orange
       if (h >= 20 && h < 45) return 'Orange';
-      // Yellow — wide range because yellows vary a lot
       if (h >= 45 && h < 75) return 'Yellow';
-      // Green
       if (h >= 75 && h < 168) return 'Green';
-      // Blue/Cyan
       if (h >= 168 && h < 255) return 'Blue';
-      // Purple/Violet
       if (h >= 255 && h < 310) return 'Purple';
-      // Pink/Magenta
       if (h >= 310 && h < 340) return 'Pink';
     }
 
-    // Brown detection — orange-ish hue but low value and low-medium saturation
-    if (h >= 15 && h < 45 && s >= 0.15 && v >= 0.1 && v < 0.55) {
-      return 'Brown';
-    }
+    if (h >= 15 && h < 45 && s >= 0.15 && v >= 0.1 && v < 0.55) return 'Brown';
 
-    // Fallback — classify by closest primary if we have any chromatic signal at all
     if (s >= 0.08) {
-      // Just pick closest hue bucket
       if (h >= 340 || h < 30) return 'Red';
       if (h >= 30 && h < 75) return 'Yellow';
       if (h >= 75 && h < 168) return 'Green';
@@ -175,11 +182,10 @@ class ColorDetectionService {
         return RainbowColor.yellow;
       case 'Purple':
         return RainbowColor.purple;
-      // Map adjacent colors to game colors for better UX
       case 'Orange':
-        return RainbowColor.red; // Orange objects count as Red
+        return RainbowColor.red; // orange → red
       case 'Pink':
-        return RainbowColor.purple; // Pink counts as Purple
+        return RainbowColor.purple; // pink → purple
       default:
         return null;
     }

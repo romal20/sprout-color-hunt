@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.romal.task4"
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

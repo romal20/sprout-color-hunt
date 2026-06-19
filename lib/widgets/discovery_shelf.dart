@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/game_models.dart';
@@ -80,7 +81,8 @@ class _EmptySlot extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color.color.withValues(alpha: 0.3),
-              border: Border.all(color: color.color.withValues(alpha: 0.6), width: 1.5),
+              border: Border.all(
+                  color: color.color.withValues(alpha: 0.6), width: 1.5),
             ),
           ),
           const SizedBox(height: 4),
@@ -145,7 +147,9 @@ class _FilledSlot extends StatelessWidget {
                 ),
                 child: Text(
                   // Show actual ML Kit label, never hard-code "Object"
-                  discovery.objectLabel.isNotEmpty ? discovery.objectLabel : discovery.detectedColor,
+                  discovery.objectLabel.isNotEmpty
+                      ? discovery.objectLabel
+                      : discovery.detectedColor,
                   style: GoogleFonts.fredoka(
                     color: Colors.white,
                     fontSize: 8,
@@ -208,15 +212,20 @@ class _DiscoveryImageState extends State<_DiscoveryImage> {
   @override
   void initState() {
     super.initState();
-    _evictCache();
+    // Only evict file-based cache on native — FileImage crashes on web
+    if (!kIsWeb) {
+      _evictCacheNative();
+    }
   }
 
-  void _evictCache() {
+  void _evictCacheNative() {
     final path = widget.discovery.imagePath;
     if (path.isEmpty) return;
-    FileImage(File(path)).evict().catchError((_) => false).then((_) {
-      if (mounted) setState(() => _error = false);
-    });
+    try {
+      FileImage(File(path)).evict().catchError((_) => false).then((_) {
+        if (mounted) setState(() => _error = false);
+      });
+    } catch (_) {}
   }
 
   @override
@@ -224,6 +233,22 @@ class _DiscoveryImageState extends State<_DiscoveryImage> {
     final path = widget.discovery.imagePath;
     if (_error || path.isEmpty) return _fallback();
 
+    // ── Web: blob URL — use Image.network ─────────────────────────────────
+    if (kIsWeb) {
+      return Image.network(
+        path,
+        key: ValueKey(path),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _error = true);
+          });
+          return _fallback();
+        },
+      );
+    }
+
+    // ── Native: file path — use Image.file ────────────────────────────────
     try {
       final file = File(path);
       if (!file.existsSync()) return _fallback();
@@ -247,7 +272,8 @@ class _DiscoveryImageState extends State<_DiscoveryImage> {
   Widget _fallback() {
     return Container(
       color: widget.discovery.targetColor.color.withValues(alpha: 0.20),
-      child: Icon(Icons.image_rounded, color: widget.discovery.targetColor.color, size: 28),
+      child: Icon(Icons.image_rounded,
+          color: widget.discovery.targetColor.color, size: 28),
     );
   }
 }
