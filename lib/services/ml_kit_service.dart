@@ -44,18 +44,30 @@ class MlKitService {
       // Sort by confidence descending — always use highest confidence first
       labels.sort((a, b) => b.confidence.compareTo(a.confidence));
 
-      // Walk from highest confidence, pick first non-generic label
+      // Collect all non-generic labels
+      final candidates = <String>[];
       for (final label in labels) {
         final cleaned = _cleanLabel(label.label);
         if (cleaned.isNotEmpty && !_isGenericLabel(cleaned)) {
-          debugPrint(
-              '[MlKit] Best label: "$cleaned" (${(label.confidence * 100).toStringAsFixed(1)}%)');
-          return cleaned;
+          candidates.add(cleaned);
         }
       }
 
-      // All labels are generic — return the top one rather than "Object"
-      // so real things like "Apple", "Bottle" still appear
+      if (candidates.isNotEmpty) {
+        // Prefer the most specific (shortest word-count) among the top
+        // candidates — "Apple" beats "Fresh fruit", "Bottle" beats "Glass container"
+        candidates.sort((a, b) {
+          final wa = a.split(' ').length;
+          final wb = b.split(' ').length;
+          if (wa != wb) return wa.compareTo(wb); // fewer words = more specific
+          return a.compareTo(b); // alphabetical tiebreak
+        });
+        final best = candidates.first;
+        debugPrint('[MlKit] Best label: "$best"');
+        return best;
+      }
+
+      // All labels are generic — return the highest-confidence one anyway
       final top = _cleanLabel(labels.first.label);
       debugPrint('[MlKit] All generic, using top: "$top"');
       return top.isNotEmpty ? top : 'Object';
@@ -82,9 +94,11 @@ class MlKitService {
   }
 
   bool _isGenericLabel(String label) {
-    // Only truly unhelpful meta-labels — NOT object names.
-    // Apple, Bottle, Book, Fruit, etc. are intentionally NOT in this list.
+    // Truly unhelpful labels that add no information to the user.
+    // Concrete object names (Apple, Bottle, Book, Fruit, Flower, Cup…)
+    // must NOT be in this list — they should always be shown.
     const generic = <String>{
+      // Meta / photography terms
       'Organism',
       'Still life photography',
       'Macro photography',
@@ -92,13 +106,26 @@ class MlKitService {
       'Stock photography',
       'Creative arts',
       'Font',
+      // Completely uninformative
       'Unknown',
       'None',
+      'Object',
+      'Item',
+      'Thing',
       'Entity',
       'Texture',
       'Pattern',
       'Background',
       'Scene',
+      'Image',
+      'Photo',
+      'Picture',
+      'Color',
+      'Colour',
+      'Shape',
+      'Product',
+      'Display',
+      'Symbol',
     };
     return generic.contains(label);
   }

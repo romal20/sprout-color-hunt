@@ -130,10 +130,12 @@ class ColorDetectionService {
     final double v = maxC;
 
     if (v < 0.12) return 'Black';
-    if (v > 0.88 && delta < 0.08) return 'White';
+    // Tighter White gate: require very low delta AND very high brightness.
+    // This prevents bright yellows (banana, paper) being misclassified as White.
+    if (v > 0.92 && delta < 0.06) return 'White';
 
     final double s = maxC > 0 ? delta / maxC : 0;
-    if (s < 0.12) return 'Grey';
+    if (s < 0.10) return 'Grey';
 
     double h = 0;
     if (delta > 0.001) {
@@ -149,20 +151,25 @@ class ColorDetectionService {
 
     if (s >= 0.10 && v >= 0.10) {
       if (h >= 340 || h < 20) return 'Red';
-      if (h >= 20 && h < 45) return 'Orange';
-      if (h >= 45 && h < 75) return 'Yellow';
-      if (h >= 75 && h < 168) return 'Green';
+      if (h >= 20 && h < 42) return 'Orange';
+      // Yellow: wider range (42–82°) catches warm yellows, banana yellows,
+      // greenish-yellows and paper yellows that previously fell into Orange/Green
+      if (h >= 42 && h < 82) return 'Yellow';
+      if (h >= 82 && h < 168) return 'Green';
       if (h >= 168 && h < 255) return 'Blue';
       if (h >= 255 && h < 310) return 'Purple';
       if (h >= 310 && h < 340) return 'Pink';
     }
 
-    if (h >= 15 && h < 45 && s >= 0.15 && v >= 0.1 && v < 0.55) return 'Brown';
+    if (h >= 15 && h < 42 && s >= 0.15 && v >= 0.1 && v < 0.55) return 'Brown';
 
-    if (s >= 0.08) {
-      if (h >= 340 || h < 30) return 'Red';
-      if (h >= 30 && h < 75) return 'Yellow';
-      if (h >= 75 && h < 168) return 'Green';
+    // Low-saturation fallback — use lower threshold (0.06) so pale/faded
+    // yellow objects still register instead of falling through to Grey
+    if (s >= 0.06) {
+      if (h >= 340 || h < 25) return 'Red';
+      if (h >= 25 && h < 42) return 'Orange';
+      if (h >= 42 && h < 82) return 'Yellow';
+      if (h >= 82 && h < 168) return 'Green';
       if (h >= 168 && h < 255) return 'Blue';
       return 'Purple';
     }

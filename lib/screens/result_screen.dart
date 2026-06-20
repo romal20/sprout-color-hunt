@@ -210,20 +210,6 @@ class _SuccessScreenState extends State<SuccessScreen>
                             ),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            TtsService().stop();
-                            provider.backToHunt();
-                          },
-                          child: Text(
-                            'Back to Hunt',
-                            style: GoogleFonts.fredoka(
-                              fontSize: 16,
-                              color: Colors.white60,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
