@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_provider.dart';
 import 'services/tts_service.dart';
+import 'services/audio_service.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/hunt_screen.dart';
 import 'screens/result_screen.dart';
@@ -19,6 +20,10 @@ void main() async {
     ),
   );
   await TtsService().init();
+  // Instantiate AudioService early so its WidgetsBindingObserver is
+  // registered before the first frame — this ensures app-lifecycle events
+  // (pause, detach, hide) are caught from the very start.
+  AudioService();
   runApp(
     ChangeNotifierProvider(
       create: (_) => GameProvider(),

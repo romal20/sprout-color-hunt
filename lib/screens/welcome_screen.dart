@@ -74,8 +74,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             .speak("My rainbow lost its colors. Can you help me find them?");
       }
     });
-
-    AudioService().playBackground();
   }
 
   @override

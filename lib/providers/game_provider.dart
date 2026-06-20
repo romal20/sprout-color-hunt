@@ -38,13 +38,22 @@ class GameProvider extends ChangeNotifier {
 
   /// Called the moment the camera returns an image path.
   /// Clears previous results so stale data never leaks into the new analysis.
+  /// Auto-cancels to hunting state after 12s if analysis never resolves.
   void startAnalyzing(String imagePath) {
     _lastImagePath = imagePath;
-    _lastObjectLabel = ''; // clear until analysis finishes
-    _lastDetectedColor = ''; // clear until analysis finishes
+    _lastObjectLabel = '';
+    _lastDetectedColor = '';
     _gameState = GameState.analyzing;
     debugPrint('[GameProvider] startAnalyzing: $imagePath');
     notifyListeners();
+
+    // Safety net: if analysis hangs for any reason, unblock gameplay after 12s
+    Future.delayed(const Duration(seconds: 12), () {
+      if (_gameState == GameState.analyzing) {
+        debugPrint('[GameProvider] Analysis timeout — forcing backToHunt');
+        backToHunt();
+      }
+    });
   }
 
   void onAnalysisSuccess({
@@ -54,15 +63,19 @@ class GameProvider extends ChangeNotifier {
   }) {
     // Guard: don't double-award if somehow called twice for the same mission
     if (_completedMissions[_currentMissionIndex]) {
-      debugPrint('[GameProvider] onAnalysisSuccess: mission $_currentMissionIndex already completed, ignoring');
+      debugPrint(
+          '[GameProvider] onAnalysisSuccess: mission $_currentMissionIndex already completed, ignoring');
       return;
     }
 
     _lastObjectLabel = objectLabel.isNotEmpty ? objectLabel : 'Object';
-    _lastDetectedColor = detectedColor.isNotEmpty ? detectedColor : currentTargetColor.displayName;
+    _lastDetectedColor = detectedColor.isNotEmpty
+        ? detectedColor
+        : currentTargetColor.displayName;
     _lastImagePath = imagePath;
 
-    debugPrint('[GameProvider] SUCCESS — label:"$_lastObjectLabel"  color:"$_lastDetectedColor"  path:"$_lastImagePath"');
+    debugPrint(
+        '[GameProvider] SUCCESS — label:"$_lastObjectLabel"  color:"$_lastDetectedColor"  path:"$_lastImagePath"');
 
     _completedMissions[_currentMissionIndex] = true;
     _stars += 1;
@@ -88,7 +101,8 @@ class GameProvider extends ChangeNotifier {
     _lastDetectedColor = detectedColor.isNotEmpty ? detectedColor : 'Unknown';
     _lastImagePath = imagePath;
 
-    debugPrint('[GameProvider] FAILURE — label:"$_lastObjectLabel"  color:"$_lastDetectedColor"  path:"$_lastImagePath"');
+    debugPrint(
+        '[GameProvider] FAILURE — label:"$_lastObjectLabel"  color:"$_lastDetectedColor"  path:"$_lastImagePath"');
 
     _gameState = GameState.failure;
     notifyListeners();
@@ -98,7 +112,8 @@ class GameProvider extends ChangeNotifier {
   void nextMission() {
     // Safety: only advance if current mission is actually completed
     if (!_completedMissions[_currentMissionIndex]) {
-      debugPrint('[GameProvider] nextMission called but mission not completed — ignoring');
+      debugPrint(
+          '[GameProvider] nextMission called but mission not completed — ignoring');
       return;
     }
 
@@ -109,7 +124,8 @@ class GameProvider extends ChangeNotifier {
       _lastDetectedColor = '';
       _lastImagePath = '';
       _gameState = GameState.hunting;
-      debugPrint('[GameProvider] nextMission → mission $_currentMissionIndex (${currentTargetColor.displayName})');
+      debugPrint(
+          '[GameProvider] nextMission → mission $_currentMissionIndex (${currentTargetColor.displayName})');
     } else {
       _gameState = GameState.celebration;
       debugPrint('[GameProvider] nextMission → celebration');

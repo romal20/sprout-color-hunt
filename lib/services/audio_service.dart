@@ -1,91 +1,101 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 /// Singleton audio service.
 ///
-/// Audio is skipped entirely on Flutter Web — the audioplayers web backend
-/// requires specific server MIME types and AudioContext setup that is fragile
-/// in dev environments. All methods fail silently on web so gameplay is
-/// never blocked.
+/// Only plays one-shot sound effects — no looping background music.
+/// Implements [WidgetsBindingObserver] so all audio stops automatically
+/// when the app is paused, goes inactive, is detached, or (on web) the
+/// browser tab is hidden or closed.
 ///
-/// On Android/iOS:
-/// - Background music loops at volume 0.12 so TTS remains clearly audible.
-/// - Effect sounds (chime, success, celebration) share one player.
-///   The previous effect is always stopped before a new one starts.
-class AudioService {
+/// Sounds played:
+///   chime.mp3           — Start Hunt button, Take Picture button
+///   success.mp3         — Correct color detected
+///   rainbow_complete.mp3 — All 5 colors found
+///
+/// All methods fail silently — missing audio files never crash the app.
+/// Web audio is skipped entirely (audioplayers web requires specific server
+/// MIME-type setup that is unreliable in dev/prod Flutter web builds).
+class AudioService with WidgetsBindingObserver {
   static final AudioService _instance = AudioService._internal();
   factory AudioService() => _instance;
-  AudioService._internal();
 
-  AudioPlayer? _bgPlayer;
-  AudioPlayer? _fxPlayer;
-  bool _bgPlaying = false;
+  AudioService._internal() {
+    // Register once at construction time so the observer is always active
+    WidgetsBinding.instance.addObserver(this);
+  }
 
-  // ── Background music ──────────────────────────────────────────────────────
+  /// Single shared player — stop previous before starting next.
+  /// Prevents duplicate instances accumulating.
+  AudioPlayer? _player;
 
-  Future<void> playBackground() async {
-    if (kIsWeb) return; // web audio skipped — see class doc
-    if (_bgPlaying) return;
-    try {
-      _bgPlayer?.dispose();
-      _bgPlayer = AudioPlayer();
-      await _bgPlayer!.setReleaseMode(ReleaseMode.loop);
-      await _bgPlayer!.setVolume(0.12);
-      await _bgPlayer!.play(AssetSource('audio/background_music.mp3'));
-      _bgPlaying = true;
-      debugPrint('[AudioService] Background music started');
-    } catch (e) {
-      debugPrint('[AudioService] playBackground error: $e');
+  // ── WidgetsBindingObserver ────────────────────────────────────────────────
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        stopAll();
+        break;
+      case AppLifecycleState.resumed:
+        // Do nothing — no music to restart
+        break;
     }
   }
 
-  Future<void> stopBackground() async {
-    if (kIsWeb) return;
-    try {
-      await _bgPlayer?.stop();
-      _bgPlayer?.dispose();
-      _bgPlayer = null;
-      _bgPlaying = false;
-      debugPrint('[AudioService] Background music stopped');
-    } catch (e) {
-      debugPrint('[AudioService] stopBackground error: $e');
-    }
-  }
+  // ── Public API ────────────────────────────────────────────────────────────
 
-  Future<void> restartBackground() async {
-    if (kIsWeb) return;
-    _bgPlaying = false;
-    await playBackground();
-  }
-
-  // ── Effect sounds ─────────────────────────────────────────────────────────
-
+  /// Stop any currently playing sound and play [asset] once.
   Future<void> _playFx(String asset) async {
     if (kIsWeb) return; // web audio skipped — see class doc
     try {
-      await _fxPlayer?.stop();
-      _fxPlayer?.dispose();
-      _fxPlayer = AudioPlayer();
-      await _fxPlayer!.play(AssetSource(asset));
-      debugPrint('[AudioService] Playing fx: $asset');
+      // Stop and dispose the old player before creating a new one.
+      // This prevents multiple AudioPlayer instances from accumulating.
+      await _player?.stop();
+      _player?.dispose();
+      _player = AudioPlayer();
+      await _player!.setReleaseMode(ReleaseMode.release); // play once, no loop
+      await _player!.play(AssetSource(asset));
+      debugPrint('[AudioService] ▶ $asset');
     } catch (e) {
       debugPrint('[AudioService] _playFx error ($asset): $e');
+      // Dispose on error to avoid dangling player
+      try {
+        _player?.dispose();
+      } catch (_) {}
+      _player = null;
     }
   }
 
-  Future<void> playChime() async => _playFx('audio/chime.mp3');
-  Future<void> playSuccess() async => _playFx('audio/success.mp3');
+  /// UI feedback — Start Hunt button, Take Picture button.
+  Future<void> playChime() => _playFx('audio/chime.mp3');
 
-  Future<void> playCelebration() async {
-    await stopBackground();
-    await _playFx('audio/rainbow_complete.mp3');
+  /// Correct color detected.
+  Future<void> playSuccess() => _playFx('audio/success.mp3');
+
+  /// All 5 colors found — rainbow complete.
+  Future<void> playCelebration() => _playFx('audio/rainbow_complete.mp3');
+
+  /// Stop whatever is currently playing and release the player.
+  Future<void> stopAll() async {
+    try {
+      await _player?.stop();
+      _player?.dispose();
+      _player = null;
+      debugPrint('[AudioService] ■ All audio stopped');
+    } catch (e) {
+      debugPrint('[AudioService] stopAll error: $e');
+    }
   }
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
-
+  /// Call this only if you need to tear down the service entirely.
   void dispose() {
-    _bgPlayer?.dispose();
-    _fxPlayer?.dispose();
-    _bgPlaying = false;
+    WidgetsBinding.instance.removeObserver(this);
+    _player?.dispose();
+    _player = null;
   }
 }

@@ -221,7 +221,7 @@ class _CelebrationScreenState extends State<CelebrationScreen>
                     GestureDetector(
                       onTap: () {
                         TtsService().stop();
-                        AudioService().restartBackground();
+                        AudioService().stopAll();
                         provider.resetGame();
                       },
                       child: Container(
@@ -259,7 +259,7 @@ class _CelebrationScreenState extends State<CelebrationScreen>
                     TextButton(
                       onPressed: () {
                         TtsService().stop();
-                        AudioService().restartBackground();
+                        AudioService().stopAll();
                         provider.resetGame();
                       },
                       child: Text(
