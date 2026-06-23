@@ -23,6 +23,8 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
   google_fonts: ^6.2.1
+  flutter_dotenv: ^5.1.0
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -33,15 +35,19 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/logo.png"
+
+  image_path: "assets/app_icon.png"
+
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/app_icon.png"
+
   min_sdk_android: 21
-  adaptive_icon_background: "#6C4DFF"
-  adaptive_icon_foreground: "assets/logo.png"
 
 flutter:
   uses-material-design: true
 
   assets:
+    - .env
     - assets/logo.png
     - assets/logo-removebg.png
     - assets/images/twinkle.png

@@ -44,13 +44,14 @@ class GameProvider extends ChangeNotifier {
     _lastObjectLabel = '';
     _lastDetectedColor = '';
     _gameState = GameState.analyzing;
+
     debugPrint('[GameProvider] startAnalyzing: $imagePath');
+
     notifyListeners();
 
-    // Safety net: if analysis hangs for any reason, unblock gameplay after 12s
-    Future.delayed(const Duration(seconds: 12), () {
+    Future.delayed(const Duration(seconds: 60), () {
       if (_gameState == GameState.analyzing) {
-        debugPrint('[GameProvider] Analysis timeout — forcing backToHunt');
+        debugPrint('[GameProvider] Analysis timeout');
         backToHunt();
       }
     });

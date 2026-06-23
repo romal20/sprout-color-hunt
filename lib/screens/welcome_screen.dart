@@ -156,7 +156,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 children: [
                   // Title block — focal point at top
                   const SizedBox(height: 8),
-                  _RainbowTitle(),
+                  const _RainbowTitle(),
 
                   const SizedBox(height: 12),
 
@@ -189,7 +189,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 ScaleTransition(
                                   scale: _bubble1Scale,
                                   alignment: Alignment.bottomLeft,
-                                  child: _CloudBubble(
+                                  child: const _CloudBubble(
                                     text: 'My rainbow\nlost its colors!',
                                   ),
                                 ),
@@ -197,7 +197,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 ScaleTransition(
                                   scale: _bubble2Scale,
                                   alignment: Alignment.bottomLeft,
-                                  child: _CloudBubble(
+                                  child: const _CloudBubble(
                                     text: 'Can you help\nme find them?',
                                   ),
                                 ),
@@ -303,7 +303,7 @@ class _TwinkleDotState extends State<_TwinkleDot>
         opacity: _anim.value,
         child: CustomPaint(
           size: Size(widget.size, widget.size),
-          painter: _FourPointStarPainter(
+          painter: const _FourPointStarPainter(
             color: Colors.white,
           ),
         ),
@@ -332,10 +332,11 @@ class _FourPointStarPainter extends CustomPainter {
       final angle = (i * math.pi / 4) - math.pi / 2;
       final x = cx + r * math.cos(angle);
       final y = cy + r * math.sin(angle);
-      if (i == 0)
+      if (i == 0) {
         path.moveTo(x, y);
-      else
+      } else {
         path.lineTo(x, y);
+      }
     }
     path.close();
     canvas.drawPath(path, paint);
@@ -379,10 +380,10 @@ class _MoonWidget extends StatelessWidget {
           child: Container(
             width: size * 0.76,
             height: size * 0.76,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               // match the background top color exactly
-              color: const Color(0xFF0A0A2E),
+              color: Color(0xFF0A0A2E),
             ),
           ),
         ),

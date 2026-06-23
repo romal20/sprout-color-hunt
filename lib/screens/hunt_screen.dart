@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,8 @@ import '../providers/game_provider.dart';
 import '../services/audio_service.dart';
 import '../services/tts_service.dart';
 import '../services/color_detection_service.dart';
-import '../services/ml_kit_service.dart';
+//import '../services/ml_kit_service.dart';
+import '../services/gemini_vision_service.dart';
 import '../utils/asset_helper.dart';
 import '../widgets/rainbow_progress.dart';
 import '../widgets/twinkle_widget.dart';
@@ -140,16 +140,19 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
     if (kIsWeb) {
       debugPrint('[HuntScreen] Web: reading XFile bytes');
       try {
-        final bytes = await xfile.readAsBytes()
+        final bytes = await xfile
+            .readAsBytes()
             .timeout(const Duration(seconds: 5), onTimeout: () {
           throw TimeoutException('readAsBytes timed out');
         });
-        debugPrint('[HuntScreen] Web: got ${bytes.length} bytes, path=${xfile.path}');
+        debugPrint(
+            '[HuntScreen] Web: got ${bytes.length} bytes, path=${xfile.path}');
         // analysis is async — don't await, navigation happens inside it
         _analyzeImageWeb(bytes, xfile.path);
       } catch (e) {
         debugPrint('[HuntScreen] Web: readAsBytes error: $e');
-        if (mounted) _showErrorDialog('Could not read the picture. Please try again!');
+        if (mounted)
+          _showErrorDialog('Could not read the picture. Please try again!');
       }
     } else {
       // Native: verify file on disk before analysis
@@ -161,11 +164,13 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
           _analyzeImageNative(xfile.path);
         } else {
           debugPrint('[HuntScreen] Native: file NOT found after capture');
-          if (mounted) _showErrorDialog('Could not save the picture. Please try again!');
+          if (mounted)
+            _showErrorDialog('Could not save the picture. Please try again!');
         }
       } catch (e) {
         debugPrint('[HuntScreen] Native file check error: $e');
-        if (mounted) _showErrorDialog('Could not read the picture. Please try again!');
+        if (mounted)
+          _showErrorDialog('Could not read the picture. Please try again!');
       }
     }
   }
@@ -183,16 +188,25 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
         () => ColorDetectionService.detectDominantColorFromBytes(bytes),
       ).timeout(const Duration(seconds: 5), onTimeout: () {
         debugPrint('[HuntScreen] Web color detection timed out');
-        return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
       });
       debugPrint('[HuntScreen] Web color result: ${colorResult.colorName}');
     } catch (e) {
       debugPrint('[HuntScreen] Web color detection error: $e');
-      colorResult = ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+      colorResult = ColorDetectionResult(
+          colorName: 'Red', rainbowColor: RainbowColor.red);
     }
 
     // ML Kit not available on web — use 'Object'
-    const label = 'Object';
+    //const label = 'Object';
+    String label;
+
+    try {
+      label = await GeminiVisionService().analyzeImage(imagePath);
+    } catch (e) {
+      label = 'Object';
+    }
 
     if (!mounted) return;
 
@@ -202,15 +216,50 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
         ? colorResult.colorName
         : targetColor.displayName;
 
-    debugPrint('[HuntScreen] Web — target:${targetColor.displayName} detected:$colorName match:$isMatch');
+    final objectLabel = label.isNotEmpty ? label : 'Object';
 
-    if (isMatch) {
-      provider.onAnalysisSuccess(
-          objectLabel: label, detectedColor: colorName, imagePath: imagePath);
-    } else {
-      provider.onAnalysisFailure(
-          objectLabel: label, detectedColor: colorName, imagePath: imagePath);
-    }
+    debugPrint('==========================');
+    debugPrint('TARGET: ${targetColor.displayName}');
+    debugPrint('DETECTED COLOR: $colorName');
+    debugPrint('OBJECT: $objectLabel');
+    debugPrint('MATCH: $isMatch');
+    debugPrint('CURRENT STATE: ${provider.gameState}');
+    debugPrint('==========================');
+
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      debugPrint('========== RESULT ==========');
+      debugPrint('Target Color : ${targetColor.displayName}');
+      debugPrint('Detected     : $colorName');
+      debugPrint('Object       : $objectLabel');
+      debugPrint('Match        : $isMatch');
+      debugPrint('============================');
+
+      if (isMatch) {
+        debugPrint('CALLING SUCCESS');
+
+        provider.onAnalysisSuccess(
+          objectLabel: objectLabel,
+          detectedColor: colorName,
+          imagePath: imagePath,
+        );
+
+        debugPrint('SUCCESS CALLED');
+      } else {
+        debugPrint('CALLING FAILURE');
+
+        provider.onAnalysisFailure(
+          objectLabel: objectLabel,
+          detectedColor: colorName,
+          imagePath: imagePath,
+        );
+
+        debugPrint('FAILURE CALLED');
+      }
+    });
   }
 
   // ── Native analysis path (uses file path, runs ML Kit) ────────────────────
@@ -226,47 +275,90 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
         () => ColorDetectionService.detectDominantColor(imagePath),
       ).timeout(const Duration(seconds: 5), onTimeout: () {
         debugPrint('[HuntScreen] Native color detection timed out');
-        return ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+        return ColorDetectionResult(
+            colorName: 'Red', rainbowColor: RainbowColor.red);
       });
       debugPrint('[HuntScreen] Native color result: ${colorResult.colorName}');
     } catch (e) {
       debugPrint('[HuntScreen] Native color detection error: $e');
-      colorResult = ColorDetectionResult(colorName: 'Red', rainbowColor: RainbowColor.red);
+      colorResult = ColorDetectionResult(
+          colorName: 'Red', rainbowColor: RainbowColor.red);
     }
 
     // ── ML Kit labeling with 5s timeout (already inside MlKitService) ─────
+    // String label;
+    // try {
+    //   label = await MlKitService()
+    //       .labelImage(imagePath)
+    //       .timeout(const Duration(seconds: 5), onTimeout: () {
+    //     debugPrint('[HuntScreen] ML Kit outer timeout');
+    //     return 'Object';
+    //   });
+    //   debugPrint('[HuntScreen] ML Kit label: $label');
+    // } catch (e) {
+    //   debugPrint('[HuntScreen] ML Kit error: $e');
+    //   label = 'Object';
+    // }
     String label;
     try {
-      label = await MlKitService()
-          .labelImage(imagePath)
-          .timeout(const Duration(seconds: 5), onTimeout: () {
-        debugPrint('[HuntScreen] ML Kit outer timeout');
+      label = await GeminiVisionService()
+          .analyzeImage(imagePath)
+          .timeout(const Duration(seconds: 15), onTimeout: () {
+        debugPrint('[HuntScreen] Gemini timeout');
         return 'Object';
       });
-      debugPrint('[HuntScreen] ML Kit label: $label');
+
+      debugPrint('[HuntScreen] Gemini label: $label');
     } catch (e) {
-      debugPrint('[HuntScreen] ML Kit error: $e');
+      debugPrint('[HuntScreen] Gemini error: $e');
       label = 'Object';
     }
 
-    if (!mounted) return;
+    try {
+      debugPrint('STEP A');
 
-    final targetColor = provider.currentTargetColor;
-    final isMatch = colorResult.rainbowColor == targetColor;
-    final colorName = colorResult.colorName.isNotEmpty
-        ? colorResult.colorName
-        : targetColor.displayName;
-    // Use the ML Kit label directly — it's already filtered in MlKitService
-    final objectLabel = label.isNotEmpty ? label : 'Object';
+      final targetColor = provider.currentTargetColor;
 
-    debugPrint('[HuntScreen] Native — target:${targetColor.displayName} detected:$colorName match:$isMatch label:$objectLabel');
+      debugPrint('STEP B');
 
-    if (isMatch) {
-      provider.onAnalysisSuccess(
-          objectLabel: objectLabel, detectedColor: colorName, imagePath: imagePath);
-    } else {
-      provider.onAnalysisFailure(
-          objectLabel: objectLabel, detectedColor: colorName, imagePath: imagePath);
+      final isMatch = colorResult.rainbowColor == targetColor;
+
+      debugPrint('STEP C');
+
+      final colorName = colorResult.colorName.isNotEmpty
+          ? colorResult.colorName
+          : targetColor.displayName;
+
+      debugPrint('STEP D');
+
+      final objectLabel = label.isNotEmpty ? label : 'Object';
+
+      debugPrint('STEP E');
+
+      debugPrint(
+          '[HuntScreen] Native — target:${targetColor.displayName} detected:$colorName match:$isMatch label:$objectLabel');
+
+      if (isMatch) {
+        debugPrint('STEP SUCCESS');
+
+        provider.onAnalysisSuccess(
+          objectLabel: objectLabel,
+          detectedColor: colorName,
+          imagePath: imagePath,
+        );
+      } else {
+        debugPrint('STEP FAILURE');
+
+        provider.onAnalysisFailure(
+          objectLabel: objectLabel,
+          detectedColor: colorName,
+          imagePath: imagePath,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('CRASH FOUND');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
     }
   }
 
@@ -370,7 +462,7 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
             'assets/images/twinkle.png',
             width: 42,
             height: 42,
-            fallback: TwinkleStarWidget(size: 42),
+            fallback: const TwinkleStarWidget(size: 42),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -478,7 +570,7 @@ class _HuntScreenState extends State<HuntScreen> with WidgetsBindingObserver {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TwinkleWidget(size: 68),
+          const TwinkleWidget(size: 68),
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
@@ -872,11 +964,12 @@ class _CameraScreenState extends State<CameraScreen> {
 
     setState(() => _capturing = true);
 
-    // ── takePicture with 5s timeout ────────────────────────────────────────
+    // ── FtakePicture with 5s timeout ────────────────────────────────────────
     XFile xfile;
     try {
       debugPrint('[CameraScreen] Calling takePicture()');
-      xfile = await _controller!.takePicture()
+      xfile = await _controller!
+          .takePicture()
           .timeout(const Duration(seconds: 5), onTimeout: () {
         throw TimeoutException('takePicture timed out after 5s');
       });
@@ -886,9 +979,9 @@ class _CameraScreenState extends State<CameraScreen> {
       if (mounted) {
         setState(() => _capturing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Could not capture image. Please try again.'),
-            backgroundColor: const Color(0xFF6C4DFF),
+            backgroundColor: Color(0xFF6C4DFF),
           ),
         );
       }

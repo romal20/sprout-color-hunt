@@ -9,9 +9,11 @@ import 'screens/welcome_screen.dart';
 import 'screens/hunt_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/celebration_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

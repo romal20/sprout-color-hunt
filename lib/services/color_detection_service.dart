@@ -78,7 +78,9 @@ class ColorDetectionService {
           final colorName = _rgbToColorName(r, g, b);
           if (colorName == 'White' ||
               colorName == 'Black' ||
-              colorName == 'Grey') continue;
+              colorName == 'Grey') {
+            continue;
+          }
           colorCounts[colorName] = (colorCounts[colorName] ?? 0) + 1;
         }
       }
@@ -102,7 +104,34 @@ class ColorDetectionService {
 
       final sorted = colorCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
-      final dominantName = sorted.first.key;
+      String dominantName = sorted.first.key;
+
+      final red = colorCounts['Red'] ?? 0;
+      final orange = colorCounts['Orange'] ?? 0;
+      final yellow = colorCounts['Yellow'] ?? 0;
+      final green = colorCounts['Green'] ?? 0;
+      final blue = colorCounts['Blue'] ?? 0;
+      final purple = colorCounts['Purple'] ?? 0;
+
+// Fix common Yellow ↔ Orange confusion
+      if (dominantName == 'Orange' && yellow > 0 && yellow >= orange * 0.75) {
+        dominantName = 'Yellow';
+      }
+
+// Fix common Blue ↔ Purple confusion
+      if (dominantName == 'Blue' && purple > 0 && purple >= blue * 0.85) {
+        dominantName = 'Purple';
+      }
+
+      debugPrint(
+        '[ColorDetection] '
+        'Red:$red '
+        'Orange:$orange '
+        'Yellow:$yellow '
+        'Green:$green '
+        'Blue:$blue '
+        'Purple:$purple',
+      );
 
       debugPrint(
           '[ColorDetection] Top: ${sorted.take(3).map((e) => "${e.key}:${e.value}").join(", ")}');
@@ -151,14 +180,12 @@ class ColorDetectionService {
 
     if (s >= 0.10 && v >= 0.10) {
       if (h >= 340 || h < 20) return 'Red';
-      if (h >= 20 && h < 42) return 'Orange';
-      // Yellow: wider range (42–82°) catches warm yellows, banana yellows,
-      // greenish-yellows and paper yellows that previously fell into Orange/Green
-      if (h >= 42 && h < 82) return 'Yellow';
-      if (h >= 82 && h < 168) return 'Green';
-      if (h >= 168 && h < 255) return 'Blue';
-      if (h >= 255 && h < 310) return 'Purple';
-      if (h >= 310 && h < 340) return 'Pink';
+      if (h >= 20 && h < 38) return 'Orange';
+      if (h >= 38 && h < 80) return 'Yellow';
+      if (h >= 80 && h < 170) return 'Green';
+      if (h >= 170 && h < 240) return 'Blue';
+      if (h >= 240 && h < 330) return 'Purple';
+      if (h >= 330 && h < 340) return 'Pink';
     }
 
     if (h >= 15 && h < 42 && s >= 0.15 && v >= 0.1 && v < 0.55) return 'Brown';
