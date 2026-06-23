@@ -1,17 +1,100 @@
-# task4
+# 🌈 Color Hunt
 
-Rainbow Hunt learning game for kids
+A camera-powered learning game built with Flutter for children aged 3–5 years.
 
-## Getting Started
+Children help **Twinkle the Star** complete a rainbow adventure by finding real-world objects that match different colors. Using the device camera, the app detects colors, identifies objects, and rewards successful discoveries with stars and celebrations.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🎯 Learning Activity
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Children complete five color missions:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+🔴 Red
+
+🔵 Blue
+
+🟢 Green
+
+🟡 Yellow
+
+🟣 Purple
+
+For each mission:
+
+1. Find an object matching the target color.
+2. Capture a photo using the camera.
+3. The app analyzes the image.
+4. The child earns a reward for a correct match.
+5. The next mission unlocks.
+
+---
+
+## ✨ Features
+
+* 📷 Camera-based exploration
+* 🎨 Custom color detection
+* 🤖 AI-powered object recognition
+* ⭐ Star reward system
+* 🌈 Progressive rainbow missions
+* 🎉 Celebration animations
+* 🔊 Audio feedback
+* 👶 Preschool-friendly design
+
+---
+
+## 🧠 Learning Goals
+
+Color Hunt helps children develop:
+
+* Color recognition
+* Observation skills
+* Environmental awareness
+* Independent exploration
+* Confidence through positive reinforcement
+
+---
+
+## 🏗️ Technology Stack
+
+* Flutter
+* Provider
+* Camera
+* Google Gemini Vision API
+* Image Processing
+* Audioplayers
+* Flutter Dotenv
+
+---
+
+## 🚀 Running the Project
+
+Install dependencies:
+
+```bash
+flutter pub get
+```
+
+Create a `.env` file:
+
+```env
+GEMINI_API_KEY=YOUR_API_KEY
+```
+
+Run the app:
+
+```bash
+flutter run
+```
+
+Build release APK:
+
+```bash
+flutter build apk --release
+```
+
+---
+
+## 👨‍💻 Author
+
+**Romal Shah**
