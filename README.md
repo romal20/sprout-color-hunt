@@ -1,4 +1,4 @@
-# 🌈 Color Hunt
+# 🌈 Rainbow Hunt
 
 A camera-powered learning game built with Flutter for children aged 3–5 years.
 
@@ -45,7 +45,7 @@ For each mission:
 
 ## 🧠 Learning Goals
 
-Color Hunt helps children develop:
+Rainbow Hunt helps children develop:
 
 * Color recognition
 * Observation skills
